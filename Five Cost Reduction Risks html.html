@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Dark Side of Savings: Cost Reduction Risks</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React and ReactDOM CDNs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX transpilation in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+      import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+      // These global variables are expected to be available in the Canvas environment.
+      // For standalone HTML, they might not be defined. We'll handle this gracefully.
+      window.__app_id = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+      window.__firebase_config = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+      window.__initial_auth_token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+      window.firebase = {
+        initializeApp,
+        getAuth,
+        signInAnonymously,
+        signInWithCustomToken,
+        onAuthStateChanged,
+        getFirestore
+      };
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+
+        .sidebar-link {
+            padding: 1rem 1.5rem;
+            display: block;
+            font-weight: 600;
+            color: #f4eae6; /* Ivory text */
+            border-radius: 0.6rem; /* rounded-lg */
+            transition: all 0.3s ease-in-out;
+            margin-bottom: 0.75rem;
+            text-align: center;
+            letter-spacing: 0.025em;
+        }
+        .sidebar-link:hover {
+            background-color: rgba(66, 151, 160, 0.2); /* Teal Green with transparency */
+            color: #f4eae6; /* Ivory */
+            transform: translateX(3px);
+        }
+        .sidebar-link.active {
+            background-color: #4297a0; /* Teal Green */
+            color: white;
+            box-shadow: 0 6px 12px -2px rgba(66, 151, 160, 0.4);
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore } = window.firebase;
+
+        // Icons from lucide-react (simulated as direct SVG paths for self-containment)
+        const DollarSignIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-dollar-sign">
+            <line x1="12" x2="12" y1="2" y2="22"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5a3.5 0 0 1 0 7H6"></path>
+          </svg>
+        );
+
+        const UserXIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-x">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-2 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <line x1="17" x2="22" y1="8" y2="13"></line>
+            <line x1="22" x2="17" y1="8" y2="13"></line>
+          </svg>
+        );
+
+        const LineChartIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucude-line-chart">
+            <path d="M3 3v18h18"></path>
+            <path d="m18 10-4 4-2-2-5 5"></path>
+          </svg>
+        );
+
+        const FlaskOffIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-flask-off">
+            <path d="M10 17h4"></path>
+            <path d="M10 2c1 .7 2 1.5 2 3 0 2.2-2 3-2 3"></path>
+            <path d="M14 17V5c0-1.5-1-2.3-2-3"></path>
+            <path d="M8.5 2h-1c-.8 0-1.5.7-1.5 1.5v4c0 .8.7 1.5 1.5 1.5h1.5l2 3h2l2-3h1.5c.8 0 1.5-.7 1.5-1.5v-4C21 2.7 20.3 2 19.5 2h-1"></path>
+            <path d="m3 3 18 18"></path>
+          </svg>
+        );
+
+        const HammerIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-hammer">
+            <path d="m15 12-8.5 8.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L12 9"></path>
+            <path d="M17.63 15.37 16 17l-3-3 1.63-1.63a.94.94 0 0 1 1.34 1.34Z"></path>
+            <path d="m18 13-1.5-7.5L22 2l-3.5 3.5L18 13Z"></path>
+          </svg>
+        );
+
+        const ShieldOffIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-off">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path>
+            <path d="m2 2 20 20"></path>
+          </svg>
+        );
+
+        const BarChartIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bar-chart-2">
+            <line x1="18" x2="18" y1="20" y2="10"></line>
+            <line x1="12" x2="12" y1="20" y2="4"></line>
+            <line x1="6" x2="6" y1="20" y2="14"></line>
+          </svg>
+        );
+
+        const ScaleOffIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-scale-off">
+            <path d="M16 16.5V9.4L20 4"></path>
+            <path d="M8 8v12c0 1.1.9 2 2 2h4"></path>
+            <path d="M20 16.5V9.4L16 4"></path>
+            <path d="m3 3 18 18"></path>
+          </svg>
+        );
+
+        const MegaphoneOffIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-megaphone-off">
+            <path d="M10.4 12.6A10.9 10.9 0 0 1 12 22h-.4c-2.7 0-5.2-1.3-7.1-3.1a2 2 0 0 1-1.9-2.9"></path>
+            <path d="M8 12c0-1.4.3-2.9.8-4.3"></path>
+            <path d="M17.2 12c-.4-1-.9-2-1.7-2.9"></path>
+            <path d="M19 12h-2"></path>
+            <path d="M2 2l20 20"></path>
+            <path d="M10 5.4a2.9 2.9 0 0 0 4 4"></path>
+          </svg>
+        );
+
+        const RocketIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-rocket">
+            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84 1.83-2.34 3-4 .6-2.62 1.32-5.65 2-9 1.17-2.54 2.98-1.27 4-1.27 1.07 0 2.07 1.07 2.07 2.07 0 1.07-1.3 2.07-2.7 2.7-3.4 1.38-6.42 2.07-9 2z"></path>
+            <path d="M10 14c0 6-2 8-2 8s2-2 8-2"></path>
+            <path d="M10 14c0 6 2 8 2 8s-2-2-8-2"></path>
+            <path d="M8 10c0-6 2-8 2-8s-2 2-8 2"></path>
+          </svg>
+        );
+
+        const TrendingUpIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trending-up">
+            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+            <polyline points="16 7 22 7 22 13"></polyline>
+          </svg>
+        );
+
+        const PiggyBankIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-piggy-bank">
+            <path d="M19 5c-1.5 0-2.8.7-3.8 1.8A4 4 0 0 1 12 7H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10c1.1 0 2-.9 2-2V9a2 2 0 0 0-2-2h-.4c.3-.7.6-1.4.9-2.1.3-.8.6-1.6.9-2.4-.2.2-.4.3-.6.5C21 5.4 22 5 22 5s-1.5-2-2.5-2H4"></path>
+            <path d="M2 17v-2a2 2 0 0 1 2-2h12"></path>
+            <path d="M2 7v-2a2 2 0 0 1 2-2h12"></path>
+          </svg>
+        );
+
+        const MailIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail">
+            <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+            <path d="m22 7-8.97 5.7a1.8 1.8 0 0 1-2.06 0L2 7"></path>
+          </svg>
+        );
+
+        const PhoneIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-phone">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-1.18 2.2l-1.35.61a.75.75 0 0 0-.47.84 6.95 6.95 0 0 0 5.43 5.43.75.75 0 0 0 .84-.47l.61-1.35a2 2 0 0 1 2.2-1.18 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+        );
+
+        const LinkedinIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-linkedin">
+            <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+            <rect width="4" height="12" x="2" y="9"></rect>
+            <circle cx="4" cy="4" r="2"></circle>
+          </svg>
+        );
+
+        const TrendingDownIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trending-down">
+            <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline>
+            <polyline points="16 17 22 17 22 11"></polyline>
+          </svg>
+        );
+
+        const ActivityIcon = () => (
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-activity">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+          </svg>
+        );
+
+
+        // Dummy data for KPIs for visualization purposes
+        const kpiData = [
+            { name: 'Partial Profitability', value: 75, target: 80, color: 'text-green-500', icon: <LineChartIcon /> },
+            { name: 'Liquidity Ratios', value: 60, target: 70, color: 'text-blue-500', icon: <DollarSignIcon /> },
+            { name: 'Break-even Analysis', value: 85, target: 90, color: 'text-purple-500', icon: <BarChartIcon /> },
+            { name: 'Quality of Control', value: 70, target: 80, color: 'text-yellow-500', icon: <ShieldOffIcon /> },
+            { name: 'Accuracy of Financial Reports', value: 90, target: 95, color: 'text-indigo-500', icon: <DollarSignIcon /> },
+        ];
+
+        function App() {
+            const [selectedSection, setSelectedSection] = useState('title');
+            const [firebaseInitialized, setFirebaseInitialized] = useState(false);
+            const [userId, setUserId] = useState(null);
+
+            // Initialize Firebase and handle authentication
+            useEffect(() => {
+                const appId = window.__app_id;
+                const firebaseConfig = window.__firebase_config ? JSON.parse(window.__firebase_config) : null;
+                const initialAuthToken = window.__initial_auth_token;
+
+                try {
+                    if (firebaseConfig && initializeApp) {
+                        const app = initializeApp(firebaseConfig);
+                        const auth = getAuth(app);
+                        const db = getFirestore(app); // Get Firestore instance
+
+                        // Listen for auth state changes
+                        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                            if (user) {
+                                setUserId(user.uid);
+                            } else {
+                                // Sign in anonymously if no user is authenticated
+                                try {
+                                    if (initialAuthToken) {
+                                        await signInWithCustomToken(auth, initialAuthToken);
+                                    } else {
+                                        await signInAnonymously(auth);
+                                    }
+                                    setUserId(auth.currentUser?.uid || crypto.randomUUID()); // Ensure userId is set
+                                } catch (error) {
+                                    console.error("Firebase authentication error:", error);
+                                    setUserId(crypto.randomUUID()); // Fallback to random ID
+                                }
+                            }
+                            setFirebaseInitialized(true); // Mark Firebase as initialized
+                        });
+
+                        // Cleanup subscription on unmount
+                        return () => unsubscribe();
+                    } else {
+                        console.warn("Firebase config or SDK not found. Running without Firebase features.");
+                        setFirebaseInitialized(true); // Proceed without Firebase if config/SDK is missing
+                        setUserId(crypto.randomUUID()); // Generate a random ID for unauthenticated users
+                    }
+                } catch (error) {
+                    console.error("Failed to initialize Firebase:", error);
+                    setFirebaseInitialized(true); // Mark as initialized even on error to unblock UI
+                    setUserId(crypto.randomUUID()); // Fallback to random ID
+                }
+            }, []);
+
+            // Content data for the presentation
+            const sections = {
+                title: {
+                    title: "Strategic Cost Reduction for SMEs",
+                    subtitle: "Navigating Financial Challenges with Sustainable Practices",
+                    presenter: {
+                        name: "Driss Maknoun, MBA, RBA",
+                        title: "Healthcare Management Expert: Setup, Planning, Operations, Accreditation",
+                        consultantRole: "Freelancing Consultant for SME, Startups, Business Planning & Analysis, Data Analysis, Financial Analysis",
+                        contact: {
+                            mobile: "+966565324218",
+                            email: "dmaknoun@gmail.com",
+                            linkedin: "https://www.linkedin.com/in/maknoun/",
+                        },
+                    },
+                    content: (
+                        <>
+                            <p className="text-gray-700 text-lg mb-6">
+                                Facing financial challenges? The way you reduce costs can make or break your business. This pitch deck explores common missteps and outlines strategic alternatives for long-term sustainability and growth.
+                            </p>
+                        </>
+                    ),
+                },
+                problem: {
+                    title: "The Dark Side of Savings: Five Cost Reduction Risks for Businesses", // Changed title as requested
+                    practices: [
+                        {
+                            id: 'salaries',
+                            title: "Reducing Employee Salaries and Firing highly paid staff: A Strategic Blunder", // Updated title as requested
+                            description: "Cutting salaries leads to loss of key talent, decreased loyalty, and a significant drop in productivity.",
+                            deviations: [
+                                { text: "Loss of Talent & Skill Drain", icon: <UserXIcon /> },
+                                { text: "Weakened Employee Loyalty & High Turnover", icon: <LineChartIcon /> },
+                                { text: "Reduced Productivity & Motivation", icon: <BarChartIcon /> },
+                            ],
+                        },
+                        {
+                            id: 'quality',
+                            title: "Sacrificing Quality for Savings",
+                            description: "Compromising product or service quality to save costs erodes customer trust and harms brand reputation.",
+                            deviations: [
+                                { text: "Lower Product/Service Quality", icon: <FlaskOffIcon /> },
+                                { text: "Loss of Customer Trust & Loyalty", icon: <HammerIcon /> },
+                                { text: "Decreased Sales & Increased Returns", icon: <TrendingDownIcon /> },
+                            ],
+                        },
+                        {
+                            id: 'governance',
+                            title: "Scaling Back Monitoring & Governance",
+                            description: "Reducing oversight invites financial misconduct, legal issues, and poor decision-making.",
+                            deviations: [
+                                { text: "Reduced Financial Oversight", icon: <ShieldOffIcon /> },
+                                { text: "Increased Fraud & Misuse of Resources", icon: <DollarSignIcon /> },
+                                { text: "Regulatory Non-Compliance & Fines", icon: <HammerIcon /> },
+                                { text: "Suboptimal Management Decisions", icon: <BarChartIcon /> },
+                            ],
+                        },
+                        {
+                            id: 'tax',
+                            title: "Incorrect Tax Practices",
+                            description: "Aggressive or uninformed tax strategies expose the business to severe penalties and legal challenges.",
+                            deviations: [
+                                { text: "Tax Evasion Risks & Penalties", icon: <ScaleOffIcon /> },
+                                { text: "Inefficient Tax Planning", icon: <DollarSignIcon /> },
+                                { text: "Non-Compliance & Regulatory Scrutiny", icon: <ShieldOffIcon /> },
+                            ],
+                        },
+                        {
+                            id: 'marketing',
+                            title: "Reducing Marketing Budget",
+                            description: "Cutting marketing too deeply leads to reduced brand visibility, loss of market share, and stalled growth.",
+                            deviations: [
+                                { text: "Decreased Brand Awareness", icon: <MegaphoneOffIcon /> },
+                                { text: "Loss of Market Share to Competitors", icon: <LineChartIcon /> },
+                                { text: "Stalled New Product Launches", icon: <RocketIcon /> },
+                                { text: "Overall Sales Decline", icon: <BarChartIcon /> },
+                            ],
+                        },
+                    ],
+                },
+                solution: {
+                    title: "The Solution: Best Practices for Sustainable Growth",
+                    practices: [
+                        {
+                            title: "Focus on Revenue Generation",
+                            description: "Shift focus from purely cutting costs to innovative strategies for increasing sales and enhancing customer experience.",
+                            icon: <TrendingUpIcon />,
+                        },
+                        {
+                            title: "Precise Break-even Analysis",
+                            description: "Conduct thorough break-even analysis to determine minimum sales required to cover all costs effectively.",
+                            icon: <BarChartIcon />,
+                        },
+                        {
+                            title: "Rationalize General Expenses",
+                            description: "Review and trim non-essential general expenses while safeguarding crucial services impacting customer satisfaction.",
+                            icon: <PiggyBankIcon />,
+                        },
+                        {
+                            title: "Optimize Debt Structure",
+                            description: "Restructure debts, improve repayment terms, and explore lower-cost financing to ease financial burdens.",
+                            icon: <DollarSignIcon />,
+                        },
+                    ],
+                },
+                riskAnalysis: {
+                    title: "Risk Analysis Matrix: Identifying & Mitigating Threats",
+                    description: "Understanding and categorizing risks associated with cost-cutting decisions is crucial for proactive management. This matrix helps visualize potential threats based on their likelihood and impact.",
+                    risks: [
+                        { name: "Talent Exodus", likelihood: 4, impact: 5, category: "High" },
+                        { name: "Brand Damage", likelihood: 4, impact: 4, category: "High" },
+                        { name: "Legal Penalties", likelihood: 3, impact: 5, category: "High" },
+                        { name: "Operational Inefficiency", likelihood: 3, impact: 3, category: "Medium" },
+                        { name: "Market Share Loss", likelihood: 4, impact: 3, category: "High" },
+                        { name: "Cash Flow Strain", likelihood: 2, impact: 4, category: "Medium" },
+                    ],
+                    // Matrix details for rendering
+                    matrixLabels: {
+                        likelihood: ["Rare", "Unlikely", "Moderate", "Likely", "Almost Certain"],
+                        impact: ["Insignificant", "Minor", "Moderate", "Major", "Catastrophic"]
+                    }
+                },
+                financialImpact: {
+                    title: "Financial Impact: Illustrative Scenarios",
+                    description: "These charts illustrate the potential financial outcomes of both misguided and strategic cost management approaches over time. While hypothetical, they reflect common industry trends.",
+                    charts: [
+                        {
+                            id: 'revenue-decline',
+                            title: 'Revenue Impact of Wrong Practices (e.g., Quality Cuts)',
+                            data: [
+                                { label: 'Year 1', value: 100 },
+                                { label: 'Year 2', value: 90 },
+                                { label: 'Year 3', value: 75 },
+                            ],
+                            color: 'text-red-500',
+                            lineColor: '#e57f84', // Coral
+                            isNegative: true,
+                        },
+                        {
+                            id: 'cost-optimization',
+                            title: 'Optimized vs. Unoptimized Costs',
+                            data: [
+                                { label: 'Unoptimized', value: 100 },
+                                { label: 'Optimized', value: 80 },
+                            ],
+                            color: 'text-green-500',
+                            barColors: ['#e57f84', '#4297a0'], // Coral for unoptimized, Teal Green for optimized
+                            isBar: true,
+                        },
+                    ],
+                },
+                kpis: {
+                    title: "Key Performance Indicators (KPIs) for Continuous Monitoring",
+                    description: "KPIs serve as a compass for financial sustainability. Continuously monitoring these indicators allows management to detect deviations early and take corrective actions before problems escalate. These indicators are proactive tools, enabling organizations to shift from crisis management to risk management and future foresight.",
+                    data: [
+                        { name: 'Partial Profitability', description: 'Measuring the profitability of each product/service/branch', mechanism: 'Revenue vs. Cost Analysis', frequency: 'Monthly', icon: <LineChartIcon /> },
+                        { name: 'Liquidity Ratios', description: "Measuring the organization's ability to meet its obligations", mechanism: 'Various financial ratios', frequency: 'Weekly', icon: <DollarSignIcon /> },
+                        { name: 'Break-even Analysis', description: 'Determining the sales volume needed to cover costs', mechanism: 'Break-even equation', frequency: 'Quarterly', icon: <BarChartIcon /> },
+                        { name: 'Quality of Control', description: 'Evaluating the effectiveness of internal control systems', mechanism: 'Internal and external review', frequency: 'Semi-annually', icon: <ShieldOffIcon /> },
+                        { name: 'Accuracy of Financial Reports', description: 'Measuring the accuracy and transparency of financial data', mechanism: 'Independent review', frequency: 'Quarterly', icon: <ActivityIcon /> },
+                    ],
+                },
+            };
+
+            // Component to render individual Wrong Practice details
+            const ProblemCard = ({ practice }) => (
+                <div className="bg-[#f4eae6] rounded-lg shadow-lg p-6 mb-8 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl border-t-4 border-[#e57f84]"> {/* Ivory background, Coral border */}
+                    <h3 className="text-2xl font-bold text-[#2f5061] mb-4 flex items-center"> {/* Misty Blue text */}
+                        <span className="mr-3 text-[#e57f84] text-3xl">{practice.deviations && practice.deviations.length > 0 ? practice.deviations[0].icon : <DollarSignIcon />}</span> {/* Coral icon */}
+                        {practice.title}
+                    </h3>
+                    <p className="text-gray-700 mb-4 text-base">{practice.description}</p>
+                    <h4 className="text-xl font-semibold text-gray-800 mb-3 border-b border-gray-200 pb-2">Key Risks:</h4>
+                    <ul className="list-none text-gray-700 space-y-2">
+                        {practice.deviations && practice.deviations.map((deviation, index) => (
+                            <li key={index} className="flex items-start text-base">
+                                <span className="text-[#e57f84] mr-2 flex-shrink-0 mt-1">{deviation.icon}</span> {/* Coral icon */}
+                                {deviation.text}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            );
+
+            // Component to render individual Best Practice details
+            const SolutionCard = ({ practice }) => (
+                <div className="bg-[#f4eae6] rounded-lg shadow-lg p-6 mb-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl flex flex-col items-start border-t-4 border-[#4297a0]"> {/* Ivory background, Teal Green border */}
+                    <div className="text-[#4297a0] mb-3 text-3xl">{practice.icon}</div> {/* Teal Green icon */}
+                    <h3 className="text-2xl font-bold text-[#2f5061] mb-3">{practice.title}</h3> {/* Misty Blue text */}
+                    <p className="text-gray-700 text-base">{practice.description}</p>
+                </div>
+            );
+
+            // Risk Matrix Component
+            const RiskMatrix = ({ risks, matrixLabels }) => {
+                const likelihoods = matrixLabels.likelihood;
+                const impacts = matrixLabels.impact;
+
+                const getRiskColor = (likelihoodIdx, impactIdx) => {
+                    const sum = likelihoodIdx + impactIdx;
+                    if (sum >= 7) return 'bg-[#e57f84]'; // Coral for High risk
+                    if (sum >= 5) return 'bg-orange-500'; // Existing orange for Medium risk
+                    return 'bg-[#4297a0]'; // Teal Green for Low risk
+                };
+
+                return (
+                    <div className="flex flex-col items-center bg-[#f4eae6] rounded-lg shadow-lg p-6"> {/* Ivory background */}
+                        <h4 className="text-lg font-semibold text-[#2f5061] mb-4">Impact</h4> {/* Misty Blue text */}
+                        <div className="flex">
+                            <div className="flex flex-col-reverse justify-around pr-2 text-sm font-medium text-gray-600">
+                                {impacts.map((label, i) => (
+                                    <div key={i} className="h-10 flex items-center justify-end">{label}</div>
+                                ))}
+                            </div>
+                            <div className="grid grid-cols-5 border border-gray-300">
+                                {impacts.map((impactLabel, i) => (
+                                    <React.Fragment key={i}>
+                                        {likelihoods.map((likelihoodLabel, j) => {
+                                            const risksInCell = risks.filter(risk =>
+                                                risk.likelihood === (j + 1) && risk.impact === (i + 1)
+                                            );
+                                            return (
+                                                <div
+                                                    key={`${j}-${i}`}
+                                                    className={`w-20 h-20 border border-gray-200 flex items-center justify-center p-1 relative ${getRiskColor(j, i)}`}
+                                                >
+                                                    {risksInCell.length > 0 && (
+                                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-white text-xs font-bold text-center">
+                                                            {risksInCell.map(risk => (
+                                                                <span key={risk.name}>{risk.name}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        </div>
+                        <h4 className="text-lg font-semibold text-[#2f5061] mt-4 mb-2">Likelihood</h4> {/* Misty Blue text */}
+                        <div className="flex justify-around w-full max-w-sm text-sm font-medium text-gray-600">
+                            {likelihoods.map((label, i) => (
+                                <span key={i}>{label}</span>
+                            ))}
+                        </div>
+                        <div className="mt-6 w-full text-center">
+                            <h5 className="text-xl font-bold text-[#2f5061] mb-3">Risk Legend</h5> {/* Misty Blue text */}
+                            <div className="flex justify-center items-center flex-wrap gap-4 text-sm font-medium">
+                                <div className="flex items-center">
+                                    <span className="w-4 h-4 rounded-full bg-[#4297a0] mr-2"></span> Low Risk
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <span className="w-4 h-4 rounded-full bg-orange-500 mr-2"></span> Medium Risk
+                                                </div>
+                                                <div className="flex items-center">
+                                                    <span className="w-4 h-4 rounded-full bg-[#e57f84] mr-2"></span> High Risk
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            };
+
+            // Simple Bar Chart Component for Financial Impact
+            const FinancialBarChart = ({ title, data, barColors, isNegative }) => {
+                const maxValue = Math.max(...data.map(d => d.value));
+                const chartHeight = 200;
+                const barWidth = 40;
+                const spacing = 20;
+
+                return (
+                    <div className="bg-[#f4eae6] rounded-lg shadow-lg p-6 mb-8 border-t-4 border-[#2f5061]"> {/* Ivory background, Misty Blue border */}
+                        <h3 className="text-xl font-bold text-[#2f5061] mb-4 text-center">{title}</h3> {/* Misty Blue text */}
+                        <svg width="100%" height={chartHeight + 40}> {/* Add padding for labels */}
+                            {/* Y-axis label */}
+                            <text x="0" y="10" fontSize="12" fill="#666" transform={`rotate(-90 10 ${chartHeight / 2}) translate(-${chartHeight / 2}, 0)`} textAnchor="middle">
+                                Value
+                            </text>
+                            {data.map((d, i) => {
+                                const x = i * (barWidth + spacing) + 50; // Offset for Y-axis label
+                                const barHeight = (d.value / maxValue) * chartHeight * (isNegative ? 0.7 : 1); // Scale for negative trend
+                                const y = isNegative ? (chartHeight - barHeight) : (chartHeight - barHeight);
+                                const color = barColors ? barColors[i % barColors.length] : (isNegative ? '#e57f84' : '#4297a0'); // Coral/Teal Green
+
+                                return (
+                                    <React.Fragment key={d.label}>
+                                        <rect
+                                            x={x}
+                                            y={y}
+                                            width={barWidth}
+                                            height={barHeight}
+                                            fill={color}
+                                            rx="5" ry="5" // Rounded corners for bars
+                                        />
+                                        <text x={x + barWidth / 2} y={chartHeight + 20} textAnchor="middle" fontSize="12" fill="#333">
+                                            {d.label}
+                                        </text>
+                                        <text x={x + barWidth / 2} y={y - 5} textAnchor="middle" fontSize="12" fill="#333">
+                                            {d.value}
+                                        </text>
+                                    </React.Fragment>
+                                );
+                            })}
+                            {/* Y-axis line */}
+                            <line x1="45" y1="0" x2="45" y2={chartHeight} stroke="#ccc" strokeWidth="1" />
+                            {/* X-axis line */}
+                            <line x1="45" y1={chartHeight} x2={data.length * (barWidth + spacing) + 60} y2={chartHeight} stroke="#ccc" strokeWidth="1" />
+                        </svg>
+                    </div>
+                );
+            };
+
+            // Simple Line Chart Component for Financial Impact
+            const FinancialLineChart = ({ title, data, lineColor, isNegative }) => {
+                const chartWidth = 400;
+                const chartHeight = 200;
+                const margin = { top: 20, right: 20, bottom: 30, left: 50 };
+                const innerWidth = chartWidth - margin.left - margin.right;
+                const innerHeight = chartHeight - margin.top - margin.bottom;
+
+                const maxDataValue = Math.max(...data.map(d => d.value));
+                const minDataValue = Math.min(...data.map(d => d.value));
+
+                const xScale = (index) => (index / (data.length - 1)) * innerWidth + margin.left;
+                const yScale = (value) => {
+                    if (maxDataValue === minDataValue) return innerHeight / 2 + margin.top; // Handle flat line
+                    return innerHeight - ((value - minDataValue) / (maxDataValue - minDataValue)) * innerHeight + margin.top;
+                };
+
+                const points = data.map((d, i) => `${xScale(i)},${yScale(d.value)}`).join(' ');
+
+                return (
+                    <div className="bg-[#f4eae6] rounded-lg shadow-lg p-6 mb-8 border-t-4 border-[#2f5061]"> {/* Ivory background, Misty Blue border */}
+                        <h3 className="text-xl font-bold text-[#2f5061] mb-4 text-center">{title}</h3> {/* Misty Blue text */}
+                        <svg width="100%" height={chartHeight}>
+                            {/* Y-axis */}
+                            <line x1={margin.left} y1={margin.top} x2={margin.left} y2={margin.top + innerHeight} stroke="#ccc" />
+                            {/* X-axis */}
+                            <line x1={margin.left} y1={margin.top + innerHeight} x2={margin.left + innerWidth} y2={margin.top + innerHeight} stroke="#ccc" />
+
+                            {/* Y-axis labels */}
+                            {[minDataValue, (minDataValue + maxDataValue) / 2, maxDataValue].map((val, i) => (
+                                <text key={i} x={margin.left - 10} y={yScale(val)} textAnchor="end" fontSize="10" fill="#666">
+                                    {val.toFixed(0)}
+                                </text>
+                            ))}
+
+                            {/* X-axis labels */}
+                            {data.map((d, i) => (
+                                <text key={i} x={xScale(i)} y={margin.top + innerHeight + 15} textAnchor="middle" fontSize="10" fill="#666">
+                                    {d.label}
+                                </text>
+                            ))}
+
+                            {/* Path */}
+                            <polyline
+                                fill="none"
+                                stroke={lineColor}
+                                strokeWidth="2"
+                                points={points}
+                            />
+                            {/* Data points */}
+                            {data.map((d, i) => (
+                                <circle key={i} cx={xScale(i)} cy={yScale(d.value)} r="3" fill={lineColor} />
+                            ))}
+                        </svg>
+                    </div>
+                );
+            };
+
+
+            // KPI Card with circular progress visual
+            const KPICard = ({ kpi, value, target }) => {
+                const radius = 40;
+                const circumference = 2 * Math.PI * radius;
+                const strokeDashoffset = circumference - (value / 100) * circumference;
+                const strokeColor = value >= target ? '#4297a0' : (value >= (target * 0.8) ? '#f59e0b' : '#e57f84'); // Teal Green, Amber, Coral
+
+                return (
+                    <div className="flex flex-col items-center justify-center p-4 bg-[#f4eae6] rounded-lg shadow-md border border-gray-200 transform transition-all duration-300 hover:scale-105"> {/* Ivory background */}
+                        <div className={`text-5xl mb-2 ${kpi.color}`}>{kpi.icon}</div>
+                        <h4 className="text-md font-semibold text-[#2f5061] text-center mb-2">{kpi.name}</h4> {/* Misty Blue text */}
+                        <div className="relative w-24 h-24">
+                            <svg className="w-full h-full transform -rotate-90">
+                                <circle
+                                    className="text-gray-200"
+                                    strokeWidth="8"
+                                    stroke="currentColor"
+                                    fill="transparent"
+                                    r={radius}
+                                    cx="50%"
+                                    cy="50%"
+                                />
+                                <circle
+                                    className="transition-all duration-500 ease-in-out"
+                                    strokeWidth="8"
+                                    stroke={strokeColor}
+                                    fill="transparent"
+                                    r={radius}
+                                    cx="50%"
+                                    cy="50%"
+                                    style={{ strokeDasharray: circumference, strokeDashoffset }}
+                                />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-xl font-bold text-[#2f5061]">{value}%</span> {/* Misty Blue text */}
+                            </div>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2 text-center">Target: {target}%</p>
+                        <p className="text-xs text-gray-500 mt-1 text-center">{kpi.frequency}</p>
+                    </div>
+                );
+            };
+
+
+            // Main content rendering logic based on selected section
+            const renderContent = () => {
+                if (!firebaseInitialized) {
+                    return (
+                        <div className="flex justify-center items-center h-full min-h-[500px]">
+                            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#2f5061]"></div> {/* Misty Blue spinner */}
+                            <p className="ml-4 text-lg text-gray-700">Loading pitch deck...</p>
+                        </div>
+                    );
+                }
+
+                switch (selectedSection) {
+                    case 'title':
+                        return (
+                            <div className="p-8 text-center bg-gradient-to-br from-[#f4eae6] to-gray-100 rounded-xl shadow-inner"> {/* Ivory gradient */}
+                                <h2 className="text-5xl font-extrabold text-[#2f5061] mb-4 leading-tight animate-fade-in-up"> {/* Misty Blue text */}
+                                    {sections.title.title}
+                                </h2>
+                                <p className="text-2xl text-gray-700 mb-8 font-medium animate-fade-in-up delay-100">
+                                    {sections.title.subtitle}
+                                </p>
+                                {sections.title.content}
+
+                                <div className="mt-12 pt-8 border-t-2 border-gray-300 animate-fade-in-up delay-200">
+                                    <h3 className="text-3xl font-bold text-[#2f5061] mb-4">Presented By:</h3> {/* Misty Blue text */}
+                                    <p className="text-xl font-semibold text-gray-800">{sections.title.presenter.name}</p>
+                                    <p className="text-lg text-gray-600 italic mb-2">{sections.title.presenter.title}</p>
+                                    <p className="text-md text-gray-500 mb-4">{sections.title.presenter.consultantRole}</p>
+                                    <div className="flex justify-center items-center space-x-6 text-[#2f5061]"> {/* Misty Blue text */}
+                                        <a href={`mailto:${sections.title.presenter.contact.email}`} className="flex items-center hover:text-gray-700 transition-colors">
+                                            <MailIcon className="mr-2"/> {sections.title.presenter.contact.email}
+                                        </a>
+                                        <a href={`tel:${sections.title.presenter.contact.mobile}`} className="flex items-center hover:text-gray-700 transition-colors">
+                                            <PhoneIcon className="mr-2"/> {sections.title.presenter.contact.mobile}
+                                        </a>
+                                        <a href={sections.title.presenter.contact.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center hover:text-gray-700 transition-colors">
+                                            <LinkedinIcon className="mr-2"/> LinkedIn
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    case 'problem':
+                        return (
+                            <div className="p-8">
+                                <h2 className="text-4xl font-extrabold text-[#e57f84] mb-8 border-b-4 border-[#e57f84] pb-2 animate-fade-in-up"> {/* Coral text and border */}
+                                    {sections.problem.title}
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {sections.problem.practices.map((practice) => (
+                                        <ProblemCard key={practice.id} practice={practice} />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    case 'solution':
+                        return (
+                            <div className="p-8">
+                                <h2 className="text-4xl font-extrabold text-[#4297a0] mb-8 border-b-4 border-[#4297a0] pb-2 animate-fade-in-up"> {/* Teal Green text and border */}
+                                    {sections.solution.title}
+                                </h2>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+                                    {sections.solution.practices.map((practice, index) => (
+                                        <SolutionCard key={index} practice={practice} />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    case 'riskAnalysis':
+                        return (
+                            <div className="p-8">
+                                <h2 className="text-4xl font-extrabold text-[#2f5061] mb-8 border-b-4 border-[#2f5061] pb-2 animate-fade-in-up"> {/* Misty Blue text and border */}
+                                    {sections.riskAnalysis.title}
+                                </h2>
+                                <p className="text-gray-700 text-lg mb-8">{sections.riskAnalysis.description}</p>
+                                <RiskMatrix
+                                    risks={sections.riskAnalysis.risks}
+                                    matrixLabels={sections.riskAnalysis.matrixLabels}
+                                />
+                            </div>
+                        );
+                    case 'financialImpact':
+                        return (
+                            <div className="p-8">
+                                <h2 className="text-4xl font-extrabold text-[#2f5061] mb-8 border-b-4 border-[#2f5061] pb-2 animate-fade-in-up"> {/* Misty Blue text and border */}
+                                    {sections.financialImpact.title}
+                                </h2>
+                                <p className="text-gray-700 text-lg mb-8">{sections.financialImpact.description}</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {sections.financialImpact.charts.map(chart => (
+                                        chart.isBar ? (
+                                            <FinancialBarChart
+                                                key={chart.id}
+                                                title={chart.title}
+                                                data={chart.data}
+                                                barColors={chart.barColors}
+                                                isNegative={chart.isNegative}
+                                            />
+                                        ) : (
+                                            <FinancialLineChart
+                                                key={chart.id}
+                                                title={chart.title}
+                                                data={chart.data}
+                                                lineColor={chart.lineColor}
+                                                isNegative={chart.isNegative}
+                                            />
+                                        )
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    case 'kpis':
+                        return (
+                            <div className="p-8">
+                                <h2 className="text-4xl font-extrabold text-[#2f5061] mb-6 border-b-4 border-[#2f5061] pb-2 animate-fade-in-up"> {/* Misty Blue text and border */}
+                                    {sections.kpis.title}
+                                </h2>
+                                <p className="text-gray-700 text-lg mb-8">{sections.kpis.description}</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {sections.kpis.data.map((kpi, index) => (
+                                        <KPICard key={index} kpi={kpi} value={kpiData[index]?.value} target={kpiData[index]?.target} />
+                                    ))}
+                                </div>
+                                <div className="overflow-x-auto bg-[#f4eae6] rounded-lg shadow-lg p-6 mt-8"> {/* Ivory background */}
+                                    <h3 className="text-xl font-bold text-[#2f5061] mb-4">Detailed KPI Breakdown</h3> {/* Misty Blue text */}
+                                    <table className="min-w-full leading-normal">
+                                        <thead>
+                                            <tr className="bg-gray-100 border-b border-gray-200 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">
+                                                <th className="px-5 py-3">KPI</th>
+                                                <th className="px-5 py-3">Description</th>
+                                                <th className="px-5 py-3">Mechanism</th>
+                                                <th className="px-5 py-3">Frequency</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>{sections.kpis.data.map((kpi, index) => (
+                                            <tr key={index} className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                                                <td className="px-5 py-5 text-sm text-[#2f5061] font-medium">{kpi.name}</td> {/* Misty Blue text */}
+                                                <td className="px-5 py-5 text-sm text-gray-700">{kpi.description}</td>
+                                                <td className="px-5 py-5 text-sm text-gray-700">{kpi.mechanism}</td>
+                                                <td className="px-5 py-5 text-sm text-gray-700">{kpi.frequency}</td>
+                                            </tr>
+                                        ))}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    default:
+                        return null;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-[#f4eae6] font-inter text-gray-900"> {/* Ivory background gradient */}
+                    <div className="flex flex-col lg:flex-row min-h-screen">
+                        {/* Sidebar Navigation */}
+                        <aside className="w-full lg:w-72 bg-[#2f5061] p-6 shadow-xl lg:shadow-md border-b lg:border-r border-[#2f5061] text-white flex flex-col"> {/* Misty Blue background */}
+                            <h1 className="text-4xl font-extrabold text-[#f4eae6] mb-10 text-center leading-snug"> {/* Ivory text */}
+                                The Dark Side of Savings: <br/> Five Cost Reduction Risks for Businesses
+                            </h1>
+                            <nav className="flex-grow">
+                                <ul>
+                                    <li>
+                                        <button
+                                            onClick={() => setSelectedSection('title')}
+                                            className={`sidebar-link ${selectedSection === 'title' ? 'active' : ''}`}
+                                        >
+                                            Title Slide
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button
+                                            onClick={() => setSelectedSection('problem')}
+                                            className={`sidebar-link ${selectedSection === 'problem' ? 'active' : ''}`}
+                                        >
+                                            The Problem
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button
+                                            onClick={() => setSelectedSection('solution')}
+                                            className={`sidebar-link ${selectedSection === 'solution' ? 'active' : ''}`}
+                                        >
+                                            The Solution
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button
+                                            onClick={() => setSelectedSection('riskAnalysis')}
+                                            className={`sidebar-link ${selectedSection === 'riskAnalysis' ? 'active' : ''}`}
+                                        >
+                                            Risk Analysis
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button
+                                            onClick={() => setSelectedSection('financialImpact')}
+                                            className={`sidebar-link ${selectedSection === 'financialImpact' ? 'active' : ''}`}
+                                        >
+                                            Financial Impact
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button
+                                            onClick={() => setSelectedSection('kpis')}
+                                            className={`sidebar-link ${selectedSection === 'kpis' ? 'active' : ''}`}
+                                        >
+                                            KPIs
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                            {userId && (
+                                <div className="mt-auto pt-4 border-t border-blue-700 text-xs text-blue-300">
+                                    <p>Session ID:</p>
+                                    <p className="font-mono break-all">{userId}</p>
+                                </div>
+                            )}
+                        </aside>
+
+                        {/* Main Content Area */}
+                        <main className="flex-1 p-4 lg:p-10 overflow-y-auto">
+                            <div className="bg-[#f4eae6] rounded-xl shadow-2xl p-6 md:p-10 lg:p-12 mb-8 animate-fade-in-up"> {/* Ivory background */}
+                                {renderContent()}
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
